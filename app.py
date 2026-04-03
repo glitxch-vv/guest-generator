@@ -515,18 +515,25 @@ def GET_PAYLOAD_BY_DATA(JWT_TOKEN, NEW_ACCESS_TOKEN, date, response, status_code
         PAYLOAD = encrypt_api(PAYLOAD)
         PAYLOAD = bytes.fromhex(PAYLOAD)
         data = GET_LOGIN_DATA(JWT_TOKEN, PAYLOAD, region)
-        
-        # Return final account data with full login status - EXACTLY like gen.py
-        return {
-            "uid": uid,
-            "account_id": NEW_EXTERNAL_ID,  # 🔥 INI DIA
-            "password": password,
-            "name": name,
-            "region": region,
-            "status": "full_login",
-            "stage": "complete",
-            
-        }
+
+account_id = None
+if data:
+    try:
+        print(json.dumps(data, indent=2))  # 🔥 debug
+        account_id = data.get('1', {}).get('data')
+    except:
+        account_id = None
+
+# Return final account data
+return {
+    "uid": uid,
+    "account_id": account_id,  # 🔥 pakai ini, bukan external_id
+    "password": password,
+    "name": name,
+    "region": region,
+    "status": "full_login",
+    "stage": "complete",
+}
     except Exception as e:
         return None
 
