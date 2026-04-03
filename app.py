@@ -519,6 +519,7 @@ def GET_PAYLOAD_BY_DATA(JWT_TOKEN, NEW_ACCESS_TOKEN, date, response, status_code
         # Return final account data with full login status - EXACTLY like gen.py
         return {
             "uid": uid,
+            "account_id": NEW_EXTERNAL_ID,  # 🔥 INI DIA
             "password": password,
             "name": name,
             "region": region,
