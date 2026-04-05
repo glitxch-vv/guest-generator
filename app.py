@@ -432,6 +432,40 @@ def login_server(uid, password, access_token, open_id, response, status_code, na
 
     return None
 
+
+
+# ================= TAMBAHKAN INI =================
+def extract_account_id(data):
+    """
+    Auto detect account_id dari hasil protobuf JSON
+    """
+    try:
+        for key, value in data.items():
+            if isinstance(value, dict):
+                val = value.get("data")
+
+                # 🔥 kandidat utama (angka panjang)
+                if isinstance(val, int) and val > 100000:
+                    return str(val)
+
+                if isinstance(val, str) and val.isdigit() and len(val) >= 6:
+                    return val
+
+                # 🔁 cek nested
+                if isinstance(val, dict):
+                    for k2, v2 in val.items():
+                        if isinstance(v2, dict):
+                            inner = v2.get("data")
+                            if isinstance(inner, int) and inner > 100000:
+                                return str(inner)
+
+    except Exception as e:
+        print("Extract error:", e)
+
+    return None
+
+
+
 # ---------------- Protobuf parse helpers ---------------- #
 def parse_results(parsed_results):
     result_dict = {}
@@ -519,8 +553,8 @@ def GET_PAYLOAD_BY_DATA(JWT_TOKEN, NEW_ACCESS_TOKEN, date, response, status_code
 account_id = None
 if data:
     try:
-        print(json.dumps(data, indent=2))  # 🔥 debug
-        account_id = data.get('1', {}).get('data')
+        print(json.dumps(data, indent=2))  # optional debug
+        account_id = extract_account_id(data)
     except:
         account_id = None
 
