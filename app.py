@@ -128,7 +128,7 @@ def generate_random_name(name_prefix):
 def generate_custom_password():
     characters = string.ascii_letters + string.digits
     random_part = ''.join(random.choice(characters) for _ in range(9)).upper()
-    return f"GLITCH-{random_part}-CORE"
+    return f"DANGER-{random_part}-CORE"
 
 # ---------------- Account creation (register/token) ---------------- #
 def create_single_account(args):
@@ -432,40 +432,6 @@ def login_server(uid, password, access_token, open_id, response, status_code, na
 
     return None
 
-
-
-# ================= TAMBAHKAN INI =================
-def extract_account_id(data):
-    """
-    Auto detect account_id dari hasil protobuf JSON
-    """
-    try:
-        for key, value in data.items():
-            if isinstance(value, dict):
-                val = value.get("data")
-
-                # 🔥 kandidat utama (angka panjang)
-                if isinstance(val, int) and val > 100000:
-                    return str(val)
-
-                if isinstance(val, str) and val.isdigit() and len(val) >= 6:
-                    return val
-
-                # 🔁 cek nested
-                if isinstance(val, dict):
-                    for k2, v2 in val.items():
-                        if isinstance(v2, dict):
-                            inner = v2.get("data")
-                            if isinstance(inner, int) and inner > 100000:
-                                return str(inner)
-
-    except Exception as e:
-        print("Extract error:", e)
-
-    return None
-
-
-
 # ---------------- Protobuf parse helpers ---------------- #
 def parse_results(parsed_results):
     result_dict = {}
@@ -527,48 +493,134 @@ def GET_LOGIN_DATA(JWT_TOKEN, PAYLOAD, region):
             attempt += 1
             time.sleep(2)
     return None
+    
+# ================= TAMBAHKAN INI =================
+def extract_account_id(data):
+    """
+    Auto detect account_id dari hasil protobuf JSON
+    """
+    try:
+        for key, value in data.items():
+            if isinstance(value, dict):
+                val = value.get("data")
+
+                # 🔥 kandidat utama (angka panjang)
+                if isinstance(val, int) and val > 100000:
+                    return str(val)
+
+                if isinstance(val, str) and val.isdigit() and len(val) >= 6:
+                    return val
+
+                # 🔁 cek nested
+                if isinstance(val, dict):
+                    for k2, v2 in val.items():
+                        if isinstance(v2, dict):
+                            inner = v2.get("data")
+                            if isinstance(inner, int) and inner > 100000:
+                                return str(inner)
+
+    except Exception as e:
+        print("Extract error:", e)
+
+    return None
+    
+    
+    
+    
 
 # ---------------- GET_PAYLOAD_BY_DATA (decode JWT payload & craft final payload) ---------------- #
 def GET_PAYLOAD_BY_DATA(JWT_TOKEN, NEW_ACCESS_TOKEN, date, response, status_code, name, uid, password, region):
     try:
+        # ================= DECODE JWT =================
         token_payload_base64 = JWT_TOKEN.split('.')[1]
         token_payload_base64 += '=' * ((4 - len(token_payload_base64) % 4) % 4)
+
         decoded_payload = base64.urlsafe_b64decode(token_payload_base64).decode('utf-8')
         decoded_payload = json.loads(decoded_payload)
+
         NEW_EXTERNAL_ID = decoded_payload.get('external_id', '')
         SIGNATURE_MD5 = decoded_payload.get('signature_md5', '')
+
+        # ================= BUILD PAYLOAD =================
         now = datetime.now()
         now = str(now)[:len(str(now))-7]
 
         PAYLOAD = b':\x071.111.2\xaa\x01\x02ar\xb2\x01 55ed759fcf94f85813e57b2ec8492f5c\xba\x01\x014\xea\x01@6fb7fdef8658fd03174ed551e82b71b21db8187fa0612c8eaf1b63aa687f1eae\x9a\x06\x014\xa2\x06\x014'
+
         PAYLOAD = PAYLOAD.replace(b"2023-12-24 04:21:34", str(now).encode())
-        PAYLOAD = PAYLOAD.replace(b"15f5ba1de5234a2e73cc65b6f34ce4b299db1af616dd1dd8a6f31b147230e5b6", NEW_ACCESS_TOKEN.encode("UTF-8"))
-        PAYLOAD = PAYLOAD.replace(b"4666ecda0003f1809655a7a8698573d0", NEW_EXTERNAL_ID.encode("UTF-8"))
-        PAYLOAD = PAYLOAD.replace(b"7428b253defc164018c604a1ebbfebdf", SIGNATURE_MD5.encode("UTF-8"))
+        PAYLOAD = PAYLOAD.replace(
+            b"15f5ba1de5234a2e73cc65b6f34ce4b299db1af616dd1dd8a6f31b147230e5b6",
+            NEW_ACCESS_TOKEN.encode("UTF-8")
+        )
+        PAYLOAD = PAYLOAD.replace(
+            b"4666ecda0003f1809655a7a8698573d0",
+            NEW_EXTERNAL_ID.encode("UTF-8")
+        )
+        PAYLOAD = PAYLOAD.replace(
+            b"7428b253defc164018c604a1ebbfebdf",
+            SIGNATURE_MD5.encode("UTF-8")
+        )
+
         PAYLOAD = PAYLOAD.hex()
         PAYLOAD = encrypt_api(PAYLOAD)
         PAYLOAD = bytes.fromhex(PAYLOAD)
+
+        # ================= CALL API =================
         data = GET_LOGIN_DATA(JWT_TOKEN, PAYLOAD, region)
 
-account_id = None
-if data:
-    try:
-        print(json.dumps(data, indent=2))  # optional debug
-        account_id = extract_account_id(data)
-    except:
+        # ================= EXTRACT ACCOUNT ID =================
+        def extract_account_id(data):
+            try:
+                for key, value in data.items():
+                    if isinstance(value, dict):
+                        val = value.get("data")
+
+                        # 🔥 kandidat utama
+                        if isinstance(val, int) and val > 100000:
+                            return str(val)
+
+                        if isinstance(val, str) and val.isdigit() and len(val) >= 6:
+                            return val
+
+                        # 🔁 nested
+                        if isinstance(val, dict):
+                            for k2, v2 in val.items():
+                                if isinstance(v2, dict):
+                                    inner = v2.get("data")
+                                    if isinstance(inner, int) and inner > 100000:
+                                        return str(inner)
+
+            except Exception as e:
+                print("Extract error:", e)
+
+            return None
+
         account_id = None
 
-# Return final account data
-return {
-    "uid": uid,
-    "account_id": account_id,  # 🔥 pakai ini, bukan external_id
-    "password": password,
-    "name": name,
-    "region": region,
-    "status": "full_login",
-    "stage": "complete",
-}
+        if data:
+            try:
+                # DEBUG (boleh dihapus kalau sudah stabil)
+                print(json.dumps(data, indent=2))
+
+                account_id = extract_account_id(data)
+
+            except Exception as e:
+                print("Parsing error:", e)
+                account_id = None
+
+        # ================= RETURN FINAL =================
+        return {
+            "uid": uid,
+            "account_id": account_id,  # ✅ ini yang kamu butuh
+            "password": password,
+            "name": name,
+            "region": region,
+            "status": "full_login",
+            "stage": "complete",
+        }
+
     except Exception as e:
+        print("GET_PAYLOAD error:", e)
         return None
 
 # ---------------- FLASK API ---------------- #
@@ -582,8 +634,8 @@ def generate_accounts():
     # Validate and convert count
     try:
         count = int(count)
-        if count > 50:
-            count = 50
+        if count > 15:
+            count = 15
         if count < 1:
             count = 1
     except:
@@ -597,7 +649,7 @@ def generate_accounts():
     print(f"Starting creation of {count} FULL LOGIN accounts for region {region} with name prefix {name}")
     
     # Use thread pool with limited workers
-    max_workers = 7  # Reduced for stability
+    max_workers = 5  # Reduced for stability
     
     # Create accounts with retry mechanism until we get exactly the requested count of FULL LOGIN accounts
     results = []
